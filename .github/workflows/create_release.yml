@@ -1,0 +1,37 @@
+name: Create Release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+jobs:
+  build:
+    name: Create Github Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+      - name: Generate Release Notes
+        shell: bash
+        id: generate_notes
+        run: |
+          cat CHANGELOG.md | perl -e "local \$/;<STDIN>=~m/^## \Q${{ github.ref_name }}\E .*?\n\n(.*?)\n(^## |\z)/ms && print \$1;" > ./release.body
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body_path: ./release.body
+          draft: false
+          prerelease: false
+          make_latest: true
+      - name: Update Major Release Tag
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          major=${GITHUB_REF_NAME/.*/}
+          git tag -f $major
+          git push -f --tags
